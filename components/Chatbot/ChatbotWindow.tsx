@@ -172,30 +172,14 @@ export function ChatbotWindow() {
     };
 
     useEffect(() => {
-        const handleOpen = (e: CustomEvent) => {
+        const handleOpen = () => {
             setIsOpen(true);
-
-            if (e.detail?.mode === 'consultation_form') {
-                // GlobalModals handles the actual modal opening.
-                // We just show a friendly message in the chat background.
-                if (messages.length === 0 || messages[messages.length - 1].role !== 'bot') {
-                    setMessages(prev => [...prev, {
-                        id: Date.now().toString(),
-                        role: 'bot',
-                        text: "빠른 상담 예약 창을 띄워드렸어요! 작성해 주시면 바로 연락드릴게요. 📝"
-                    }]);
-                }
-            } else if (e.detail?.mode === 'quote') {
-                handleScenarioStep('quote_start');
-            } else if (e.detail?.mode === 'vision') {
-                handleScenarioStep('vision_start');
-            } else {
-                // Default: Initial greeting already set in state
-            }
+            // Unified entry: No mode-specific logic, no resets. 
+            // The chatbot will simply open with its current state or initial greeting.
         };
-        window.addEventListener('openChatbot', handleOpen as EventListener);
-        return () => window.removeEventListener('openChatbot', handleOpen as EventListener);
-    }, [messages]);
+        window.addEventListener('openChatbot', handleOpen);
+        return () => window.removeEventListener('openChatbot', handleOpen);
+    }, []);
 
 
     if (!isOpen) return null;
