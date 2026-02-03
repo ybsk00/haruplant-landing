@@ -17,7 +17,8 @@ export function ChatbotWindow() {
     const [isTyping, setIsTyping] = useState(false);
     const [hasSwitchedToAI, setHasSwitchedToAI] = useState(false);
 
-    // Additional state for lead collection if needed, though form handles most
+    // Additional state for lead collection
+    const [leadData, setLeadData] = useState<Record<string, string>>({});
     const [inputValue, setInputValue] = useState("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -52,11 +53,33 @@ export function ChatbotWindow() {
         const newMsg: ChatMessage = { ...scenario, text: resolvedText as string };
         setMessages(prev => [...prev, newMsg]);
 
+        // If it's the final lead step, submit to backend
+        if (stepId === 'lead_final') {
+            submitLead();
+        }
+
         // If vision analyzing, simulate delay then jump
         if (stepId === 'vision_analyzing') {
             setTimeout(() => {
                 handleScenarioStep(scenario.nextStep || 'vision_result_ment');
             }, 2500);
+        }
+    };
+
+    const submitLead = async () => {
+        try {
+            await fetch('/api/leads', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: leadData.name || "Unknown",
+                    phone: leadData.phone || "000-0000-0000",
+                    treatment_type: "Consultation Call",
+                    email: ""
+                })
+            });
+        } catch (error) {
+            console.error("Failed to submit lead:", error);
         }
     };
 
@@ -80,10 +103,12 @@ export function ChatbotWindow() {
         // OR follow the scenario until it runs out. 
         // Given the request for "Free conversation AI", let's switch to AI unless it's a specific functional flow like Vision.
 
-        if (option.value === 'vision') {
-            // Keep envision flow local for now or ask AI? 
-            // Let's call AI with context "I want vision analysis"
+        if (option.nextStep) {
+            handleScenarioStep(option.nextStep);
+        } else if (option.value === 'vision') {
             handleAIResponse(option.label);
+        } else if (option.value === 'start_consultation') {
+            handleScenarioStep('lead_name');
         } else {
             handleAIResponse(option.label);
         }
@@ -109,11 +134,22 @@ export function ChatbotWindow() {
         e?.preventDefault();
         if (!inputValue.trim()) return;
 
+        const lastMsg = messages[messages.length - 1];
         const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', text: inputValue };
         setMessages(prev => [...prev, userMsg]);
         setInputValue("");
 
-        handleAIResponse(inputValue);
+        // If the last message was an input requirement from scenario
+        if (lastMsg?.type === 'input' && lastMsg.inputKey) {
+            const newLeadData = { ...leadData, [lastMsg.inputKey]: inputValue };
+            setLeadData(newLeadData);
+
+            if (lastMsg.options?.[0]?.nextStep) {
+                handleScenarioStep(lastMsg.options[0].nextStep);
+            }
+        } else {
+            handleAIResponse(inputValue);
+        }
     };
 
     const handleAIResponse = async (userText: string) => {
@@ -122,7 +158,9 @@ export function ChatbotWindow() {
 
         try {
             // Filter messages for history (remove complex objects, keep text)
-            const history = messages.map(m => ({ role: m.role, text: typeof m.text === 'string' ? m.text : '...' }));
+            const history = messages
+                .filter(m => typeof m.text === 'string')
+                .map(m => ({ role: m.role, text: m.text as string }));
 
             const res = await fetch('/api/chat', {
                 method: 'POST',
@@ -141,7 +179,10 @@ export function ChatbotWindow() {
             const botMsg: ChatMessage = {
                 id: Date.now().toString(),
                 role: 'bot',
-                text: data.text
+                text: data.text,
+                options: data.action === 'open_consultation' ? [
+                    { label: "📝 빠른 상담 신청하기", value: "start_consultation" }
+                ] : undefined
             };
             setMessages(prev => [...prev, botMsg]);
 
