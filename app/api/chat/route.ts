@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     try {
         const { message, history } = await req.json();
         const model = genAI.getGenerativeModel({
-            model: "gemini-1.5-flash",
+            model: "gemini-2.5-flash",
             systemInstruction: SYSTEM_PROMPT,
             tools: tools,
         });
@@ -79,10 +79,16 @@ export async function POST(req: Request) {
 
         return NextResponse.json({ text, action });
 
-    } catch (error) {
-        console.error("Gemini API Error:", error);
+    } catch (error: any) {
+        console.error("Gemini API Error Detail:", {
+            message: error.message,
+            stack: error.stack,
+            cause: error.cause,
+            status: error.status,
+            statusText: error.statusText
+        });
         return NextResponse.json({
-            text: "잉? 갑자기 머리가 핑~ 돌았어요 😵 잠시만 다시 말해줄래요? (API 오류)",
+            text: `오류가 발생했어요 😢 (Error: ${error.message || 'Unknown'})`,
             action: null
         });
     }

@@ -8,7 +8,11 @@ import { X, Send, ImagePlus, User } from "lucide-react";
 
 export function ChatbotWindow() {
     const [isOpen, setIsOpen] = useState(false);
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [messages, setMessages] = useState<ChatMessage[]>([{
+        id: 'init',
+        role: 'bot',
+        text: "안녕하세요! 하루인플란트의 귀염둥이 상담실장 '하루'예요! 😘\n궁금한 점이 있으시면 편하게 말씀해주세요!\n(예: 임플란트 가격, 안 아프게 치료하는 법 등)"
+    }]);
     const [isTyping, setIsTyping] = useState(false);
     const [hasSwitchedToAI, setHasSwitchedToAI] = useState(false);
 
@@ -193,9 +197,9 @@ export function ChatbotWindow() {
                     setMessages([{
                         id: 'root',
                         role: 'bot',
-                        text: SCENARIO.root.text,
-                        type: 'options',
-                        options: SCENARIO.root.options
+                        text: "안녕하세요! 하루인플란트의 귀염둥이 상담실장 '하루'예요! 😘\n궁금한 거 있으시면 뭐든지 물어봐 주세요! (임플란트, 비용, 진단 등)",
+                        // type: 'options', // Removed options to allow free chat
+                        // options: SCENARIO.root.options 
                     }]);
                 }
             }
