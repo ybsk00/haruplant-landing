@@ -1,7 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || "");
+const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY || "";
+const genAI = new GoogleGenerativeAI(apiKey);
 
 const SYSTEM_PROMPT = `
 당신은 '하루플란트치과'의 상담실장 '하루'입니다.
@@ -51,11 +52,19 @@ export async function POST(req: Request) {
             tools: tools,
         });
 
+        // Gemini startChat history MUST start with 'user' role.
+        // We filter out any leading messages that are 'model' (bot) to avoid the error.
+        let formattedHistory = history.map((msg: any) => ({
+            role: msg.role === 'bot' || msg.role === 'model' ? 'model' : 'user',
+            parts: [{ text: msg.text }],
+        }));
+
+        while (formattedHistory.length > 0 && formattedHistory[0].role === 'model') {
+            formattedHistory.shift();
+        }
+
         const chat = model.startChat({
-            history: history.map((msg: any) => ({
-                role: msg.role === 'bot' || msg.role === 'model' ? 'model' : 'user',
-                parts: [{ text: msg.text }],
-            })),
+            history: formattedHistory,
         });
 
         const result = await chat.sendMessage(message);

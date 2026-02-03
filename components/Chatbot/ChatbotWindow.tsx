@@ -167,41 +167,11 @@ export function ChatbotWindow() {
                     }]);
                 }
             } else if (e.detail?.mode === 'quote') {
-                if (messages.length === 0) {
-                    setMessages([{
-                        id: 'root',
-                        role: 'bot',
-                        text: SCENARIO.root.text,
-                        type: 'options',
-                        options: SCENARIO.root.options
-                    }]);
-                    setTimeout(() => handleScenarioStep('quote_start'), 100);
-                } else {
-                    handleScenarioStep('quote_start');
-                }
+                handleScenarioStep('quote_start');
             } else if (e.detail?.mode === 'vision') {
-                if (messages.length === 0) {
-                    setMessages([{
-                        id: 'root',
-                        role: 'bot',
-                        text: SCENARIO.root.text,
-                        type: 'options',
-                        options: SCENARIO.root.options
-                    }]);
-                    setTimeout(() => handleScenarioStep('vision_start'), 100);
-                } else {
-                    handleScenarioStep('vision_start');
-                }
+                handleScenarioStep('vision_start');
             } else {
-                if (messages.length === 0) {
-                    setMessages([{
-                        id: 'root',
-                        role: 'bot',
-                        text: "안녕하세요! 하루인플란트의 귀염둥이 상담실장 '하루'예요! 😘\n궁금한 거 있으시면 뭐든지 물어봐 주세요! (임플란트, 비용, 진단 등)",
-                        // type: 'options', // Removed options to allow free chat
-                        // options: SCENARIO.root.options 
-                    }]);
-                }
+                // Default: Initial greeting already set in state
             }
         };
         window.addEventListener('openChatbot', handleOpen as EventListener);

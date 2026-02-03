@@ -4,14 +4,8 @@ export const SCENARIO: Record<string, ChatMessage> = {
     root: {
         id: 'root',
         role: 'bot',
-        text: "안녕하세요! 하루인플란트의 귀염둥이 상담실장 '하루'예요! 😘\n무엇을 도와드릴까요?",
-        type: 'options',
-        options: [
-            { label: '📝 빠른 상담 신청하기', value: 'consult_form', nextStep: 'consultation_form_trigger' },
-            { label: '💰 임플란트 견적 궁금해', value: 'quote', nextStep: 'quote_start' },
-            { label: '🦷 내 치아 상태 봐줘 (AI 진단)', value: 'vision', nextStep: 'vision_start' },
-            { label: '무시하기', value: 'ignore', nextStep: 'angtal_1' }
-        ]
+        text: "안녕하세요! 하루인플란트의 귀염둥이 상담실장 '하루'예요! 😘\n궁금한 거 있으시면 뭐든지 물어봐 주세요! (임플란트, 비용, 진단 등)",
+        type: 'text'
     },
     // Special step that triggers the modal
     consultation_form_trigger: {
