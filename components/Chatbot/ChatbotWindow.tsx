@@ -11,8 +11,9 @@ export function ChatbotWindow() {
     const [messages, setMessages] = useState<ChatMessage[]>([{
         id: 'init',
         role: 'bot',
-        text: "안녕하세요! 하루인플란트의 귀염둥이 상담실장 '하루'예요! 😘\n궁금한 점이 있으시면 편하게 말씀해주세요!\n(예: 임플란트 가격, 안 아프게 치료하는 법 등)"
+        text: "안녕하세요! 하루인플란트의 귀염둥이 상담실장 '하루'예요! 😘 궁금한 점이 있으시면 편하게 말씀해주세요! (예: 임플란트 가격, 아프지 않은 치과 등)"
     }]);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [isTyping, setIsTyping] = useState(false);
     const [hasSwitchedToAI, setHasSwitchedToAI] = useState(false);
 
@@ -152,6 +153,24 @@ export function ChatbotWindow() {
         }
     };
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const userMsg: ChatMessage = {
+            id: Date.now().toString(),
+            role: 'user',
+            text: "📸 사진을 보낼게요! 진단 부탁드려요."
+        };
+        setMessages(prev => [...prev, userMsg]);
+
+        // Reset input
+        if (e.target) e.target.value = "";
+
+        // Call AI with context or use scenario
+        handleScenarioStep('vision_analyzing');
+    };
+
     useEffect(() => {
         const handleOpen = (e: CustomEvent) => {
             setIsOpen(true);
@@ -257,7 +276,22 @@ export function ChatbotWindow() {
 
                 {/* Input Area */}
                 <div className="p-3 bg-white border-t border-gray-100 shrink-0">
-                    <form onSubmit={handleInputSubmit} className="flex gap-2 relative">
+                    <form onSubmit={handleInputSubmit} className="flex gap-2 items-center relative">
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="p-2 text-gray-400 hover:text-primary transition-colors active:scale-95"
+                            title="사진 업로드"
+                        >
+                            <ImagePlus className="w-6 h-6" />
+                        </button>
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            className="hidden"
+                            accept="image/*"
+                            onChange={handleFileChange}
+                        />
                         <input
                             type="text"
                             value={inputValue}
