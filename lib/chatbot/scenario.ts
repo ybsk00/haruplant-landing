@@ -141,8 +141,7 @@ export const SCENARIO: Record<string, ChatMessage> = {
         text: "흐음... 🤔 사진으로 보니까 관리가 좀 필요해 보이는데요?\n\n방치하면 더 큰 돈 들어갈 수도 있어요 ㅠㅠ\n지금 바로 전문가 상담 받아보시는 게 어때요? (진단비 무료 혜택 드릴게요!)",
         type: 'options',
         options: [
-            { label: '상담 받아볼래', value: 'consult', nextStep: 'lead_name' },
-            { label: '괜찮아', value: 'no', nextStep: 'angtal_lead' }
+            { label: '상담 받아볼래', value: 'start_consultation' }
         ]
     }
 };

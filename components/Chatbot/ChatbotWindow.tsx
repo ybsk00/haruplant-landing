@@ -170,11 +170,12 @@ export function ChatbotWindow() {
 
             const data = await res.json();
 
-            if (data.action === 'open_consultation') {
-                triggerConsultationModal();
-            } else if (data.action === 'open_vision') {
-                triggerVisionModal();
-            }
+            // Automatic popups removed as per user request to prioritize reading the chat message first.
+            // if (data.action === 'open_consultation') {
+            //     triggerConsultationModal();
+            // } else if (data.action === 'open_vision') {
+            //     triggerVisionModal();
+            // }
 
             const botMsg: ChatMessage = {
                 id: Date.now().toString(),
