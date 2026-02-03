@@ -5,7 +5,7 @@ import { ReactNode } from "react";
 
 interface ChatbotTriggerButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     children: ReactNode;
-    mode?: "general" | "quote" | "vision";
+    mode?: "general" | "quote" | "vision" | "consultation_form";
 }
 
 export function ChatbotTriggerButton({ children, className, mode = "general", ...props }: ChatbotTriggerButtonProps) {

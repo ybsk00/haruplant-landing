@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ChatMessage, INITIAL_GREETING } from "@/lib/chatbot/types";
+import { ChatMessage } from "@/lib/chatbot/types";
 import { SCENARIO } from "@/lib/chatbot/scenario";
 import { cn } from "@/lib/utils";
 import { X, Send, ImagePlus, User } from "lucide-react";
@@ -9,56 +9,42 @@ import { X, Send, ImagePlus, User } from "lucide-react";
 export function ChatbotWindow() {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
-    const [currentStep, setCurrentStep] = useState<string>('root');
-    const [leadData, setLeadData] = useState<Record<string, string>>({});
+    const [isTyping, setIsTyping] = useState(false);
+    const [hasSwitchedToAI, setHasSwitchedToAI] = useState(false);
+
+    // Additional state for lead collection if needed, though form handles most
     const [inputValue, setInputValue] = useState("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        // Listen for custom events to open chatbot from other components (e.g. StickyBottomBar)
-        const handleOpen = (e: CustomEvent) => {
-            setIsOpen(true);
-            if (e.detail?.mode === 'quote') {
-                // Jump to quote if needed, or just open. For now, open root.
-                handleScenarioStep('quote_start');
-            } else if (e.detail?.mode === 'vision') {
-                handleScenarioStep('vision_start');
-            } else {
-                if (messages.length === 0) {
-                    handleScenarioStep('root');
-                }
-            }
-        };
-        window.addEventListener('openChatbot', handleOpen as EventListener);
-        return () => window.removeEventListener('openChatbot', handleOpen as EventListener);
-    }, [messages]);
 
     useEffect(() => {
         if (messagesEndRef.current) {
             messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
         }
-    }, [messages]);
+    }, [messages, isTyping]);
 
+    // Handle Scenario Step (Rule-based)
     const handleScenarioStep = (stepId: string) => {
         // Special Trigger for External Modals
         if (stepId === 'consultation_form_trigger') {
             const event = new CustomEvent("openChatbot", { detail: { mode: 'consultation_form' } });
             window.dispatchEvent(event);
-            return; // Don't add a message
+            return;
         }
 
         const scenario = SCENARIO[stepId];
         if (!scenario) return;
 
-        setCurrentStep(stepId);
+        // setCurrentStep(stepId); // We might not need state for this if mixed with AI, but good for tracking
 
         // Resolve dynamic text if function
         let resolvedText = scenario.text;
+        // @ts-ignore
         if (typeof scenario.text === 'function') {
+            // @ts-ignore
             resolvedText = scenario.text(leadData['name'] || '고객');
         }
 
-        const newMsg: ChatMessage = { ...scenario, text: resolvedText };
+        const newMsg: ChatMessage = { ...scenario, text: resolvedText as string };
         setMessages(prev => [...prev, newMsg]);
 
         // If vision analyzing, simulate delay then jump
@@ -69,54 +55,154 @@ export function ChatbotWindow() {
         }
     };
 
+    // Handle Quick Options (Rule-based to AI transition)
     const handleOptionClick = (option: { label: string; value: string; nextStep?: string }) => {
-        // Add user message
         const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', text: option.label };
         setMessages(prev => [...prev, userMsg]);
 
-        // Proceed to next step
-        const nextStep = option.nextStep;
-        if (nextStep) {
-            setTimeout(() => handleScenarioStep(nextStep), 500);
+        // Special checking for triggers
+        if (option.value === 'consult_form') {
+            triggerConsultationModal();
+            // Add a bot message saying "Opening..."
+            setTimeout(() => {
+                setMessages(prev => [...prev, { id: Date.now().toString(), role: 'bot', text: "상담 신청서를 열어드렸어요! 예쁘게 작성해주세요~ 😘" }]);
+            }, 500);
+            return;
         }
+
+        // If it's the first interaction, we might want to transition to AI or stick to scenario for one step
+        // For simplicity and "AI persona" requirement, let's switch to AI immediately for most things
+        // OR follow the scenario until it runs out. 
+        // Given the request for "Free conversation AI", let's switch to AI unless it's a specific functional flow like Vision.
+
+        if (option.value === 'vision') {
+            // Keep envision flow local for now or ask AI? 
+            // Let's call AI with context "I want vision analysis"
+            handleAIResponse(option.label);
+        } else {
+            handleAIResponse(option.label);
+        }
+    };
+
+    const triggerConsultationModal = () => {
+        const event = new CustomEvent("openChatbot", { detail: { mode: 'consultation_form' } });
+        window.dispatchEvent(event);
+    };
+
+    const triggerVisionModal = () => {
+        // Since we don't have a separate vision modal, we simulate it in chat or alert user
+        // For now, let's just ask for upload in chat (simulated) or say it's opening
+        setMessages(prev => [...prev, {
+            id: Date.now().toString(),
+            role: 'bot',
+            text: "치아 사진을 올려주시면 제가 봐드릴게요! (업로드 버튼을 눌러주세요 📸)",
+            type: 'image_upload'
+        }]);
     };
 
     const handleInputSubmit = (e?: React.FormEvent) => {
         e?.preventDefault();
         if (!inputValue.trim()) return;
 
-        // Save data based on current step key
-        const currentScenario = SCENARIO[currentStep];
-        if (currentScenario?.inputKey) {
-            setLeadData(prev => ({ ...prev, [currentScenario.inputKey!]: inputValue }));
-        }
-
-        // User message
         const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', text: inputValue };
         setMessages(prev => [...prev, userMsg]);
         setInputValue("");
 
-        // Find next step from options (usually only one for input)
-        if (currentScenario?.options && currentScenario.options.length > 0) {
-            const nextStep = currentScenario.options[0].nextStep;
-            if (nextStep) {
-                setTimeout(() => handleScenarioStep(nextStep), 500);
+        handleAIResponse(inputValue);
+    };
+
+    const handleAIResponse = async (userText: string) => {
+        setIsTyping(true);
+        setHasSwitchedToAI(true);
+
+        try {
+            // Filter messages for history (remove complex objects, keep text)
+            const history = messages.map(m => ({ role: m.role, text: typeof m.text === 'string' ? m.text : '...' }));
+
+            const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: userText, history })
+            });
+
+            const data = await res.json();
+
+            if (data.action === 'open_consultation') {
+                triggerConsultationModal();
+            } else if (data.action === 'open_vision') {
+                triggerVisionModal();
             }
+
+            const botMsg: ChatMessage = {
+                id: Date.now().toString(),
+                role: 'bot',
+                text: data.text
+            };
+            setMessages(prev => [...prev, botMsg]);
+
+        } catch (error) {
+            console.error(error);
+            setMessages(prev => [...prev, { id: Date.now().toString(), role: 'bot', text: "앗, 잠시 통신이 불안정해요! 다시 말해줄래요? 😵" }]);
+        } finally {
+            setIsTyping(false);
         }
     };
 
-    // Submit final data if reached final step
     useEffect(() => {
-        if (currentStep === 'lead_final') {
-            // TODO: Send to API
-            console.log("Submitting Lead:", leadData);
-            fetch('/api/leads', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(leadData)
-            }).catch(err => console.error(err));
-        }
-    }, [currentStep, leadData]);
+        const handleOpen = (e: CustomEvent) => {
+            setIsOpen(true);
+
+            if (e.detail?.mode === 'consultation_form') {
+                // GlobalModals handles the actual modal opening.
+                // We just show a friendly message in the chat background.
+                if (messages.length === 0 || messages[messages.length - 1].role !== 'bot') {
+                    setMessages(prev => [...prev, {
+                        id: Date.now().toString(),
+                        role: 'bot',
+                        text: "빠른 상담 예약 창을 띄워드렸어요! 작성해 주시면 바로 연락드릴게요. 📝"
+                    }]);
+                }
+            } else if (e.detail?.mode === 'quote') {
+                if (messages.length === 0) {
+                    setMessages([{
+                        id: 'root',
+                        role: 'bot',
+                        text: SCENARIO.root.text,
+                        type: 'options',
+                        options: SCENARIO.root.options
+                    }]);
+                    setTimeout(() => handleScenarioStep('quote_start'), 100);
+                } else {
+                    handleScenarioStep('quote_start');
+                }
+            } else if (e.detail?.mode === 'vision') {
+                if (messages.length === 0) {
+                    setMessages([{
+                        id: 'root',
+                        role: 'bot',
+                        text: SCENARIO.root.text,
+                        type: 'options',
+                        options: SCENARIO.root.options
+                    }]);
+                    setTimeout(() => handleScenarioStep('vision_start'), 100);
+                } else {
+                    handleScenarioStep('vision_start');
+                }
+            } else {
+                if (messages.length === 0) {
+                    setMessages([{
+                        id: 'root',
+                        role: 'bot',
+                        text: SCENARIO.root.text,
+                        type: 'options',
+                        options: SCENARIO.root.options
+                    }]);
+                }
+            }
+        };
+        window.addEventListener('openChatbot', handleOpen as EventListener);
+        return () => window.removeEventListener('openChatbot', handleOpen as EventListener);
+    }, [messages]);
 
 
     if (!isOpen) return null;
@@ -159,22 +245,27 @@ export function ChatbotWindow() {
                                     : "bg-white text-gray-800 rounded-tl-none border border-gray-100"
                             )}>
                                 {typeof msg.text === 'string' ? msg.text : ''}
-
-                                {/* Vision Simulation Mock */}
-                                {msg.type === 'vision_result' && (
-                                    <div className="mt-2 w-full h-32 bg-black rounded-lg relative overflow-hidden flex items-center justify-center">
-                                        <div className="absolute inset-0 border-2 border-green-400 opacity-50 animate-pulse">
-                                            <div className="absolute top-0 left-0 w-full h-1 bg-green-400 animate-[scan_2s_infinite]"></div>
-                                        </div>
-                                        <span className="text-green-400 font-mono text-xs">AI ANALYSIS COMPLETE...</span>
-                                    </div>
-                                )}
                             </div>
                         </div>
                     ))}
 
-                    {/* Current Options */}
-                    {messages.length > 0 && messages[messages.length - 1].role === 'bot' && messages[messages.length - 1].options && messages[messages.length - 1].type === 'options' && (
+                    {isTyping && (
+                        <div className="flex w-full mb-4 justify-start">
+                            <div className="size-8 rounded-full bg-secondary flex items-center justify-center text-white mr-2 shrink-0">
+                                <span className="text-xs font-bold">Bot</span>
+                            </div>
+                            <div className="bg-white text-gray-800 rounded-2xl rounded-tl-none border border-gray-100 p-3 shadow-sm">
+                                <div className="flex gap-1">
+                                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Show Quick Options ONLY if it's the very last message AND it has options AND we haven't switched to full AI mode yet (or pure option flow) */}
+                    {messages.length > 0 && !isTyping && messages[messages.length - 1].options && (
                         <div className="flex flex-col gap-2 mt-2 pl-10">
                             {messages[messages.length - 1].options?.map((opt, i) => (
                                 <button
@@ -192,17 +283,6 @@ export function ChatbotWindow() {
 
                 {/* Input Area */}
                 <div className="p-3 bg-white border-t border-gray-100 shrink-0">
-                    {/* Image Upload for Vision Step */}
-                    {messages.length > 0 && messages[messages.length - 1].type === 'image_upload' && (
-                        <div className="flex justify-center p-4">
-                            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-primary/30 rounded-xl cursor-pointer bg-blue-50/50 hover:bg-blue-50 transition-colors">
-                                <ImagePlus className="w-8 h-8 text-primary mb-2" />
-                                <span className="text-sm text-primary font-medium">사진 업로드하기</span>
-                                <input type="file" className="hidden" accept="image/*" onChange={() => handleScenarioStep('vision_analyzing')} />
-                            </label>
-                        </div>
-                    )}
-
                     <form onSubmit={handleInputSubmit} className="flex gap-2 relative">
                         <input
                             type="text"
@@ -210,7 +290,6 @@ export function ChatbotWindow() {
                             onChange={(e) => setInputValue(e.target.value)}
                             placeholder="메시지를 입력하세요..."
                             className="flex-1 bg-gray-100 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all outline-none"
-                            disabled={messages[messages.length - 1]?.type !== 'input'}
                         />
                         <button
                             type="submit"

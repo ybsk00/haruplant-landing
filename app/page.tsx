@@ -88,53 +88,54 @@ export default function Home() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {/* Card 1 */}
-                  <div className="group flex flex-1 gap-5 rounded-xl border border-transparent bg-white p-8 flex-col shadow-soft hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
+                  {/* Card 1 */}
+                  <ChatbotTriggerButton mode="quote" className="group flex flex-1 gap-5 rounded-xl border border-transparent bg-white p-8 flex-col shadow-soft hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative overflow-hidden text-left">
                     <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
                     <div className="size-14 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
                       <Calculator className="w-8 h-8" />
                     </div>
-                    <div className="flex flex-col gap-2 relative z-10">
+                    <div className="flex flex-col gap-2 relative z-10 w-full">
                       <h3 className="text-[#101418] text-xl font-bold leading-tight">간편 견적 확인</h3>
                       <p className="text-[#5e748d] text-sm font-normal leading-relaxed">방문 부담 없이 온라인으로 예상 비용을<br />미리 확인하실 수 있습니다.</p>
                     </div>
-                    <div className="mt-auto pt-4">
-                      <span className="text-primary text-sm font-bold flex items-center group-hover:translate-x-1 transition-transform cursor-pointer">
+                    <div className="mt-auto pt-4 w-full">
+                      <span className="text-primary text-sm font-bold flex items-center group-hover:translate-x-1 transition-transform">
                         바로가기 <ArrowRight className="ml-1 w-4 h-4" />
                       </span>
                     </div>
-                  </div>
+                  </ChatbotTriggerButton>
                   {/* Card 2 */}
-                  <div className="group flex flex-1 gap-5 rounded-xl border border-transparent bg-white p-8 flex-col shadow-soft hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
+                  <ChatbotTriggerButton mode="vision" className="group flex flex-1 gap-5 rounded-xl border border-transparent bg-white p-8 flex-col shadow-soft hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative overflow-hidden text-left">
                     <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
                     <div className="size-14 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
                       <ClipboardCheck className="w-8 h-8" />
                     </div>
-                    <div className="flex flex-col gap-2 relative z-10">
+                    <div className="flex flex-col gap-2 relative z-10 w-full">
                       <h3 className="text-[#101418] text-xl font-bold leading-tight">자가 진단 테스트</h3>
                       <p className="text-[#5e748d] text-sm font-normal leading-relaxed">몇 가지 간단한 질문으로 현재 치아 상태와<br />필요한 시술을 알아보세요.</p>
                     </div>
-                    <div className="mt-auto pt-4">
-                      <span className="text-primary text-sm font-bold flex items-center group-hover:translate-x-1 transition-transform cursor-pointer">
+                    <div className="mt-auto pt-4 w-full">
+                      <span className="text-primary text-sm font-bold flex items-center group-hover:translate-x-1 transition-transform">
                         테스트 시작 <ArrowRight className="ml-1 w-4 h-4" />
                       </span>
                     </div>
-                  </div>
+                  </ChatbotTriggerButton>
                   {/* Card 3 */}
-                  <div className="group flex flex-1 gap-5 rounded-xl border border-transparent bg-white p-8 flex-col shadow-soft hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
+                  <ChatbotTriggerButton mode="consultation_form" className="group flex flex-1 gap-5 rounded-xl border border-transparent bg-white p-8 flex-col shadow-soft hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative overflow-hidden text-left">
                     <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
                     <div className="size-14 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
                       <CalendarClock className="w-8 h-8" />
                     </div>
-                    <div className="flex flex-col gap-2 relative z-10">
+                    <div className="flex flex-col gap-2 relative z-10 w-full">
                       <h3 className="text-[#101418] text-xl font-bold leading-tight">빠른 상담 예약</h3>
                       <p className="text-[#5e748d] text-sm font-normal leading-relaxed">원하시는 시간에 대기 없이 전문가와<br />1:1 상담을 예약하세요.</p>
                     </div>
-                    <div className="mt-auto pt-4">
-                      <span className="text-primary text-sm font-bold flex items-center group-hover:translate-x-1 transition-transform cursor-pointer">
+                    <div className="mt-auto pt-4 w-full">
+                      <span className="text-primary text-sm font-bold flex items-center group-hover:translate-x-1 transition-transform">
                         예약하기 <ArrowRight className="ml-1 w-4 h-4" />
                       </span>
                     </div>
-                  </div>
+                  </ChatbotTriggerButton>
                 </div>
                 <div className="flex md:hidden justify-center mt-4">
                   <button className="flex min-w-[140px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-primary/10 text-primary text-sm font-bold leading-normal">
