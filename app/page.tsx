@@ -8,6 +8,7 @@ import { Calculator, Sparkles, CalendarClock, Menu, ChevronRight, ArrowRight, Ch
 import { ChatbotTriggerButton } from "@/components/ChatbotTriggerButton";
 import { ImplantSimulationModal } from "@/components/ImplantSimulationModal";
 import { RegistrationForm } from "@/components/RegistrationForm";
+import { ChatSection } from "@/components/ChatSection";
 
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -230,6 +231,9 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        {/* Chat Section - AI 상담 */}
+        <ChatSection />
 
         {/* Footer */}
         <footer className="w-full bg-background-light border-t border-[#f0f2f5] mb-20 md:mb-0">

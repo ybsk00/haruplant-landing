@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChatbotWindow } from "@/components/Chatbot/ChatbotWindow";
 import { ConsultationModal } from "@/components/ConsultationModal";
 
 export function GlobalModals() {
@@ -19,7 +18,6 @@ export function GlobalModals() {
 
     return (
         <>
-            <ChatbotWindow />
             <ConsultationModal isOpen={isConsultationOpen} onClose={() => setIsConsultationOpen(false)} />
         </>
     );
