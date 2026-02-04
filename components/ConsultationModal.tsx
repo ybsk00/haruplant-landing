@@ -98,7 +98,7 @@ export function ConsultationModal({ isOpen, onClose }: ConsultationModalProps) {
                                     value={formData.treatmentType}
                                     onChange={(e) => setFormData({ ...formData, treatmentType: e.target.value })}
                                 >
-                                    <option value="임플란트">임플란트 (추천)</option>
+                                    <option value="임플란트">임플란트</option>
                                     <option value="치아교정">치아교정</option>
                                     <option value="충치치료">충치치료</option>
                                     <option value="라미네이트">라미네이트</option>

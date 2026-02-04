@@ -1,10 +1,47 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useState, useEffect } from "react";
 import { StickyBottomBar } from "@/components/StickyBottomBar";
-import { Calculator, ClipboardCheck, CalendarClock, MessageSquare, Menu, ChevronRight, ArrowRight, CheckCircle, Smartphone } from "lucide-react";
+import { Calculator, Sparkles, CalendarClock, Menu, ChevronRight, ArrowRight, CheckCircle } from "lucide-react";
 import { ChatbotTriggerButton } from "@/components/ChatbotTriggerButton";
+import { ImplantSimulationModal } from "@/components/ImplantSimulationModal";
+import { RegistrationForm } from "@/components/RegistrationForm";
 
 export default function Home() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [visitorId, setVisitorId] = useState<string | null>(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showSimulationModal, setShowSimulationModal] = useState(false);
+
+  // Check registration status on mount
+  useEffect(() => {
+    const checkRegistration = async () => {
+      try {
+        const res = await fetch('/api/visitors', { method: 'POST' });
+        const data = await res.json();
+        if (data.success && data.visitorId) {
+          setVisitorId(data.visitorId);
+
+          const leadRes = await fetch(`/api/leads?visitorId=${data.visitorId}`);
+          const leadData = await leadRes.json();
+          if (leadData.isRegistered) {
+            setIsLoggedIn(true);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to check registration:", error);
+      }
+    };
+    checkRegistration();
+  }, []);
+
+  const handleRegistrationSuccess = () => {
+    setIsLoggedIn(true);
+    setShowLoginModal(false);
+  };
+
   return (
     <>
       <div className="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden">
@@ -87,8 +124,7 @@ export default function Home() {
                   </Link>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {/* Card 1 */}
-                  {/* Card 1 */}
+                  {/* Card 1 - 간편 견적 확인 */}
                   <ChatbotTriggerButton mode="quote" className="group flex flex-1 gap-5 rounded-xl border border-transparent bg-white p-8 flex-col shadow-soft hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative overflow-hidden text-left">
                     <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
                     <div className="size-14 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
@@ -104,23 +140,28 @@ export default function Home() {
                       </span>
                     </div>
                   </ChatbotTriggerButton>
-                  {/* Card 2 */}
-                  <ChatbotTriggerButton mode="vision" className="group flex flex-1 gap-5 rounded-xl border border-transparent bg-white p-8 flex-col shadow-soft hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative overflow-hidden text-left">
+
+                  {/* Card 2 - AI 임플란트 시뮬레이션 */}
+                  <button
+                    onClick={() => setShowSimulationModal(true)}
+                    className="group flex flex-1 gap-5 rounded-xl border border-transparent bg-white p-8 flex-col shadow-soft hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative overflow-hidden text-left"
+                  >
                     <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
                     <div className="size-14 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
-                      <ClipboardCheck className="w-8 h-8" />
+                      <Sparkles className="w-8 h-8" />
                     </div>
                     <div className="flex flex-col gap-2 relative z-10 w-full">
-                      <h3 className="text-[#101418] text-xl font-bold leading-tight">자가 진단 테스트</h3>
-                      <p className="text-[#5e748d] text-sm font-normal leading-relaxed">몇 가지 간단한 질문으로 현재 치아 상태와<br />필요한 시술을 알아보세요.</p>
+                      <h3 className="text-[#101418] text-xl font-bold leading-tight">AI 임플란트 시뮬레이션</h3>
+                      <p className="text-[#5e748d] text-sm font-normal leading-relaxed">임플란트 전/후 모습을<br />미리 확인해보세요.</p>
                     </div>
                     <div className="mt-auto pt-4 w-full">
                       <span className="text-primary text-sm font-bold flex items-center group-hover:translate-x-1 transition-transform">
-                        테스트 시작 <ArrowRight className="ml-1 w-4 h-4" />
+                        시뮬레이션 시작 <ArrowRight className="ml-1 w-4 h-4" />
                       </span>
                     </div>
-                  </ChatbotTriggerButton>
-                  {/* Card 3 */}
+                  </button>
+
+                  {/* Card 3 - 빠른 상담 예약 */}
                   <ChatbotTriggerButton mode="consultation_form" className="group flex flex-1 gap-5 rounded-xl border border-transparent bg-white p-8 flex-col shadow-soft hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative overflow-hidden text-left">
                     <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
                     <div className="size-14 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
@@ -241,6 +282,29 @@ export default function Home() {
 
         <StickyBottomBar />
       </div>
+
+      {/* Login Modal for Simulation */}
+      {showLoginModal && visitorId && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-[90%] max-w-[400px] bg-white rounded-2xl shadow-2xl p-6 animate-in zoom-in-95 duration-300">
+            <h3 className="text-xl font-bold text-gray-900 mb-2">로그인</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              AI 임플란트 시뮬레이션을 이용하려면 간단한 정보를 입력해주세요.
+            </p>
+            <RegistrationForm
+              visitorId={visitorId}
+              onSuccess={handleRegistrationSuccess}
+              onCancel={() => setShowLoginModal(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Implant Simulation Modal */}
+      <ImplantSimulationModal
+        isOpen={showSimulationModal}
+        onClose={() => setShowSimulationModal(false)}
+      />
     </>
   );
 }

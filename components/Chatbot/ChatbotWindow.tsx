@@ -1,46 +1,85 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { ChatMessage } from "@/lib/chatbot/types";
 import { SCENARIO } from "@/lib/chatbot/scenario";
 import { cn } from "@/lib/utils";
-import { X, Send, ImagePlus, User } from "lucide-react";
+import { X, Send, ImagePlus, User, MessageCircle, ChevronDown } from "lucide-react";
+import { RegistrationForm } from "@/components/RegistrationForm";
+import { QuickBookingModal } from "@/components/QuickBookingModal";
+
+// Initial greeting without emojis
+const INITIAL_MESSAGE: ChatMessage = {
+    id: 'init',
+    role: 'bot',
+    text: "안녕하세요! 하루임플란트치과 상담실장 '하루'입니다. 궁금한 점이 있으시면 편하게 말씀해주세요. (임플란트, 비용, 진단 등)"
+};
 
 export function ChatbotWindow() {
     const [isOpen, setIsOpen] = useState(false);
-    const [messages, setMessages] = useState<ChatMessage[]>([{
-        id: 'init',
-        role: 'bot',
-        text: "안녕하세요! 하루인플란트의 귀염둥이 상담실장 '하루'예요! 😘 궁금한 점이 있으시면 편하게 말씀해주세요! (예: 임플란트 가격, 아프지 않은 치과 등)"
-    }]);
+    const [isMinimized, setIsMinimized] = useState(false);
+    const [messages, setMessages] = useState<ChatMessage[]>([INITIAL_MESSAGE]);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isTyping, setIsTyping] = useState(false);
     const [hasSwitchedToAI, setHasSwitchedToAI] = useState(false);
+
+    // Visitor and registration state
+    const [visitorId, setVisitorId] = useState<string | null>(null);
+    const [isRegistered, setIsRegistered] = useState(false);
+    const [userName, setUserName] = useState<string>('');
+    const [showRegistrationForm, setShowRegistrationForm] = useState(false);
+    const [showBookingModal, setShowBookingModal] = useState(false);
 
     // Additional state for lead collection
     const [leadData, setLeadData] = useState<Record<string, string>>({});
     const [inputValue, setInputValue] = useState("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
+    // Initialize visitor on mount
+    useEffect(() => {
+        const initVisitor = async () => {
+            try {
+                // Create or get visitor
+                const res = await fetch('/api/visitors', { method: 'POST' });
+                const data = await res.json();
+                if (data.success && data.visitorId) {
+                    setVisitorId(data.visitorId);
+
+                    // Check registration status
+                    const leadRes = await fetch(`/api/leads?visitorId=${data.visitorId}`);
+                    const leadData = await leadRes.json();
+                    if (leadData.isRegistered && leadData.lead) {
+                        setIsRegistered(true);
+                        setUserName(leadData.lead.name);
+                    }
+                }
+            } catch (error) {
+                console.error("Failed to initialize visitor:", error);
+            }
+        };
+        initVisitor();
+    }, []);
+
     useEffect(() => {
         if (messagesEndRef.current) {
             messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
         }
-    }, [messages, isTyping]);
+    }, [messages, isTyping, showRegistrationForm]);
 
     // Handle Scenario Step (Rule-based)
-    const handleScenarioStep = (stepId: string) => {
+    const handleScenarioStep = useCallback((stepId: string) => {
         // Special Trigger for External Modals
         if (stepId === 'consultation_form_trigger') {
-            const event = new CustomEvent("openChatbot", { detail: { mode: 'consultation_form' } });
-            window.dispatchEvent(event);
+            if (isRegistered) {
+                setShowBookingModal(true);
+            } else {
+                setShowRegistrationForm(true);
+            }
             return;
         }
 
         const scenario = SCENARIO[stepId];
         if (!scenario) return;
-
-        // setCurrentStep(stepId); // We might not need state for this if mixed with AI, but good for tracking
 
         // Resolve dynamic text if function
         let resolvedText = scenario.text;
@@ -64,9 +103,11 @@ export function ChatbotWindow() {
                 handleScenarioStep(scenario.nextStep || 'vision_result_ment');
             }, 2500);
         }
-    };
+    }, [isRegistered, leadData]);
 
     const submitLead = async () => {
+        if (!visitorId) return;
+
         try {
             await fetch('/api/leads', {
                 method: 'POST',
@@ -74,10 +115,12 @@ export function ChatbotWindow() {
                 body: JSON.stringify({
                     name: leadData.name || "Unknown",
                     phone: leadData.phone || "000-0000-0000",
-                    treatment_type: "Consultation Call",
-                    email: ""
+                    privacyAgreed: true,
+                    visitorId
                 })
             });
+            setIsRegistered(true);
+            setUserName(leadData.name || '고객');
         } catch (error) {
             console.error("Failed to submit lead:", error);
         }
@@ -89,45 +132,36 @@ export function ChatbotWindow() {
         setMessages(prev => [...prev, userMsg]);
 
         // Special checking for triggers
-        if (option.value === 'consult_form') {
-            triggerConsultationModal();
-            // Add a bot message saying "Opening..."
-            setTimeout(() => {
-                setMessages(prev => [...prev, { id: Date.now().toString(), role: 'bot', text: "상담 신청서를 열어드렸어요! 예쁘게 작성해주세요~ 😘" }]);
-            }, 500);
+        if (option.value === 'consult_form' || option.value === 'start_consultation') {
+            if (isRegistered) {
+                setShowBookingModal(true);
+                setTimeout(() => {
+                    setMessages(prev => [...prev, {
+                        id: Date.now().toString(),
+                        role: 'bot',
+                        text: "상담 예약 창을 열어드렸습니다."
+                    }]);
+                }, 500);
+            } else {
+                setShowRegistrationForm(true);
+                setTimeout(() => {
+                    setMessages(prev => [...prev, {
+                        id: Date.now().toString(),
+                        role: 'bot',
+                        text: "상담을 위해 먼저 간단한 정보를 입력해주세요."
+                    }]);
+                }, 500);
+            }
             return;
         }
-
-        // If it's the first interaction, we might want to transition to AI or stick to scenario for one step
-        // For simplicity and "AI persona" requirement, let's switch to AI immediately for most things
-        // OR follow the scenario until it runs out. 
-        // Given the request for "Free conversation AI", let's switch to AI unless it's a specific functional flow like Vision.
 
         if (option.nextStep) {
             handleScenarioStep(option.nextStep);
         } else if (option.value === 'vision') {
             handleAIResponse(option.label);
-        } else if (option.value === 'start_consultation') {
-            handleScenarioStep('lead_name');
         } else {
             handleAIResponse(option.label);
         }
-    };
-
-    const triggerConsultationModal = () => {
-        const event = new CustomEvent("openChatbot", { detail: { mode: 'consultation_form' } });
-        window.dispatchEvent(event);
-    };
-
-    const triggerVisionModal = () => {
-        // Since we don't have a separate vision modal, we simulate it in chat or alert user
-        // For now, let's just ask for upload in chat (simulated) or say it's opening
-        setMessages(prev => [...prev, {
-            id: Date.now().toString(),
-            role: 'bot',
-            text: "치아 사진을 올려주시면 제가 봐드릴게요! (업로드 버튼을 눌러주세요 📸)",
-            type: 'image_upload'
-        }]);
     };
 
     const handleInputSubmit = (e?: React.FormEvent) => {
@@ -170,26 +204,19 @@ export function ChatbotWindow() {
 
             const data = await res.json();
 
-            // Automatic popups removed as per user request to prioritize reading the chat message first.
-            // if (data.action === 'open_consultation') {
-            //     triggerConsultationModal();
-            // } else if (data.action === 'open_vision') {
-            //     triggerVisionModal();
-            // }
-
             const botMsg: ChatMessage = {
                 id: Date.now().toString(),
                 role: 'bot',
                 text: data.text,
                 options: data.action === 'open_consultation' ? [
-                    { label: "📝 빠른 상담 신청하기", value: "start_consultation" }
+                    { label: "빠른 상담 신청하기", value: "start_consultation" }
                 ] : undefined
             };
             setMessages(prev => [...prev, botMsg]);
 
         } catch (error) {
             console.error(error);
-            setMessages(prev => [...prev, { id: Date.now().toString(), role: 'bot', text: "앗, 잠시 통신이 불안정해요! 다시 말해줄래요? 😵" }]);
+            setMessages(prev => [...prev, { id: Date.now().toString(), role: 'bot', text: "잠시 통신이 불안정합니다. 다시 말씀해주세요." }]);
         } finally {
             setIsTyping(false);
         }
@@ -202,7 +229,7 @@ export function ChatbotWindow() {
         const userMsg: ChatMessage = {
             id: Date.now().toString(),
             role: 'user',
-            text: "📸 사진을 보낼게요! 진단 부탁드려요."
+            text: "사진을 보내드립니다. 진단 부탁드려요."
         };
         setMessages(prev => [...prev, userMsg]);
 
@@ -213,128 +240,223 @@ export function ChatbotWindow() {
         handleScenarioStep('vision_analyzing');
     };
 
+    // Handle registration success
+    const handleRegistrationSuccess = (name: string, phone: string) => {
+        setIsRegistered(true);
+        setUserName(name);
+        setShowRegistrationForm(false);
+
+        setMessages(prev => [...prev, {
+            id: Date.now().toString(),
+            role: 'bot',
+            text: `${name}님, 등록이 완료되었습니다. 상담 예약을 진행하시겠습니까?`,
+            options: [
+                { label: "예, 상담 예약합니다", value: "start_consultation" }
+            ]
+        }]);
+    };
+
+    // Handle booking success
+    const handleBookingSuccess = () => {
+        setMessages(prev => [...prev, {
+            id: Date.now().toString(),
+            role: 'bot',
+            text: `${userName}님, 상담 예약이 완료되었습니다. 빠른 시일 내에 연락드리겠습니다. 좋은 하루 보내세요.`
+        }]);
+    };
+
     useEffect(() => {
         const handleOpen = () => {
             setIsOpen(true);
-            // Unified entry: No mode-specific logic, no resets. 
-            // The chatbot will simply open with its current state or initial greeting.
+            setIsMinimized(false);
         };
         window.addEventListener('openChatbot', handleOpen);
         return () => window.removeEventListener('openChatbot', handleOpen);
     }, []);
 
+    // Bottom fixed chat panel - collapsed state (floating button)
+    if (!isOpen) {
+        return (
+            <button
+                onClick={() => setIsOpen(true)}
+                className="fixed bottom-6 right-6 z-[90] size-14 bg-primary text-white rounded-full shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
+                aria-label="채팅 열기"
+            >
+                <MessageCircle className="w-7 h-7" />
+            </button>
+        );
+    }
 
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:justify-end sm:p-6 bg-black/50 sm:bg-transparent pointer-events-auto">
-            <div className="w-full sm:w-[380px] h-[100dvh] sm:h-[600px] bg-white sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300">
-                {/* Header */}
-                <div className="bg-primary p-4 text-white flex justify-between items-center shrink-0">
-                    <div className="flex items-center gap-2">
+    // Minimized state
+    if (isMinimized) {
+        return (
+            <div className="fixed bottom-0 right-0 left-0 sm:left-auto sm:right-6 sm:bottom-6 z-[100]">
+                <button
+                    onClick={() => setIsMinimized(false)}
+                    className="w-full sm:w-[380px] bg-primary text-white p-4 sm:rounded-2xl shadow-lg flex items-center justify-between"
+                >
+                    <div className="flex items-center gap-3">
                         <div className="size-8 rounded-full bg-white/20 flex items-center justify-center">
                             <User className="w-5 h-5" />
                         </div>
-                        <div>
-                            <h3 className="font-bold text-base">하루 실장님이 상담중...</h3>
-                            <span className="text-xs text-blue-200 flex items-center gap-1">
-                                <span className="size-2 bg-green-400 rounded-full animate-pulse"></span>
-                                실시간 답변 대기중
-                            </span>
+                        <div className="text-left">
+                            <p className="font-bold text-sm">하루 실장님이 대화중</p>
+                            <p className="text-xs text-blue-200">클릭하여 대화창 열기</p>
                         </div>
                     </div>
-                    <button onClick={() => setIsOpen(false)} className="hover:bg-white/10 p-1 rounded-full transition-colors">
-                        <X className="w-6 h-6" />
-                    </button>
-                </div>
+                    <ChevronDown className="w-5 h-5 rotate-180" />
+                </button>
+            </div>
+        );
+    }
 
-                {/* Chat Area */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#f0f2f5]">
-                    {messages.map((msg, idx) => (
-                        <div key={idx} className={cn("flex w-full mb-4", msg.role === 'user' ? "justify-end" : "justify-start")}>
-                            {msg.role === 'bot' && (
+    // Full chat panel - bottom fixed
+    return (
+        <>
+            <div className="fixed bottom-0 right-0 left-0 sm:left-auto sm:right-6 sm:bottom-6 z-[100] pointer-events-auto">
+                <div className="w-full sm:w-[380px] h-[85dvh] sm:h-[550px] bg-white sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300">
+                    {/* Header */}
+                    <div className="bg-primary p-4 text-white flex justify-between items-center shrink-0">
+                        <div className="flex items-center gap-2">
+                            <div className="size-8 rounded-full bg-white/20 flex items-center justify-center">
+                                <User className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-base">하루 실장님이 상담중</h3>
+                                <span className="text-xs text-blue-200 flex items-center gap-1">
+                                    <span className="size-2 bg-green-400 rounded-full animate-pulse"></span>
+                                    {isRegistered ? `${userName}님 환영합니다` : '실시간 답변 대기중'}
+                                </span>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={() => setIsMinimized(true)}
+                                className="hover:bg-white/10 p-1.5 rounded-full transition-colors"
+                                title="최소화"
+                            >
+                                <ChevronDown className="w-5 h-5" />
+                            </button>
+                            <button
+                                onClick={() => setIsOpen(false)}
+                                className="hover:bg-white/10 p-1.5 rounded-full transition-colors"
+                                title="닫기"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Chat Area */}
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#f0f2f5]">
+                        {messages.map((msg, idx) => (
+                            <div key={idx} className={cn("flex w-full mb-4", msg.role === 'user' ? "justify-end" : "justify-start")}>
+                                {msg.role === 'bot' && (
+                                    <div className="size-8 rounded-full bg-secondary flex items-center justify-center text-white mr-2 shrink-0">
+                                        <span className="text-xs font-bold">하루</span>
+                                    </div>
+                                )}
+                                <div className={cn(
+                                    "max-w-[80%] rounded-2xl p-3 text-sm leading-relaxed shadow-sm whitespace-pre-wrap",
+                                    msg.role === 'user'
+                                        ? "bg-primary text-white rounded-br-none"
+                                        : "bg-white text-gray-800 rounded-tl-none border border-gray-100"
+                                )}>
+                                    {typeof msg.text === 'string' ? msg.text : ''}
+                                </div>
+                            </div>
+                        ))}
+
+                        {isTyping && (
+                            <div className="flex w-full mb-4 justify-start">
                                 <div className="size-8 rounded-full bg-secondary flex items-center justify-center text-white mr-2 shrink-0">
-                                    <span className="text-xs font-bold">Bot</span>
+                                    <span className="text-xs font-bold">하루</span>
                                 </div>
-                            )}
-                            <div className={cn(
-                                "max-w-[80%] rounded-2xl p-3 text-sm leading-relaxed shadow-sm whitespace-pre-wrap",
-                                msg.role === 'user'
-                                    ? "bg-primary text-white rounded-br-none"
-                                    : "bg-white text-gray-800 rounded-tl-none border border-gray-100"
-                            )}>
-                                {typeof msg.text === 'string' ? msg.text : ''}
-                            </div>
-                        </div>
-                    ))}
-
-                    {isTyping && (
-                        <div className="flex w-full mb-4 justify-start">
-                            <div className="size-8 rounded-full bg-secondary flex items-center justify-center text-white mr-2 shrink-0">
-                                <span className="text-xs font-bold">Bot</span>
-                            </div>
-                            <div className="bg-white text-gray-800 rounded-2xl rounded-tl-none border border-gray-100 p-3 shadow-sm">
-                                <div className="flex gap-1">
-                                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
+                                <div className="bg-white text-gray-800 rounded-2xl rounded-tl-none border border-gray-100 p-3 shadow-sm">
+                                    <div className="flex gap-1">
+                                        <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                                        <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                                        <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    {/* Show Quick Options ONLY if it's the very last message AND it has options AND we haven't switched to full AI mode yet (or pure option flow) */}
-                    {messages.length > 0 && !isTyping && messages[messages.length - 1].options && (
-                        <div className="flex flex-col gap-2 mt-2 pl-10">
-                            {messages[messages.length - 1].options?.map((opt, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => handleOptionClick(opt)}
-                                    className="bg-white border border-primary/20 text-primary text-sm font-medium py-2 px-4 rounded-xl hover:bg-primary/5 transition-colors text-left shadow-sm"
-                                >
-                                    {opt.label}
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                    <div ref={messagesEndRef} />
-                </div>
+                        {/* Show Registration Form inline */}
+                        {showRegistrationForm && visitorId && (
+                            <div className="pl-10">
+                                <RegistrationForm
+                                    visitorId={visitorId}
+                                    onSuccess={handleRegistrationSuccess}
+                                    onCancel={() => setShowRegistrationForm(false)}
+                                />
+                            </div>
+                        )}
 
-                {/* Input Area */}
-                <div className="p-3 bg-white border-t border-gray-100 shrink-0">
-                    <form onSubmit={handleInputSubmit} className="flex gap-2 items-center relative">
-                        <button
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            className="p-2 text-gray-400 hover:text-primary transition-colors active:scale-95"
-                            title="사진 업로드"
-                        >
-                            <ImagePlus className="w-6 h-6" />
-                        </button>
-                        <input
-                            type="file"
-                            ref={fileInputRef}
-                            className="hidden"
-                            accept="image/*"
-                            onChange={handleFileChange}
-                        />
-                        <input
-                            type="text"
-                            value={inputValue}
-                            onChange={(e) => setInputValue(e.target.value)}
-                            placeholder="메시지를 입력하세요..."
-                            className="flex-1 bg-gray-100 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all outline-none"
-                        />
-                        <button
-                            type="submit"
-                            disabled={!inputValue.trim()}
-                            className="active:scale-95 transition-transform bg-primary text-white rounded-full p-3 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <Send className="w-4 h-4" />
-                        </button>
-                    </form>
+                        {/* Show Quick Options ONLY if it's the very last message AND it has options AND we're not showing registration */}
+                        {messages.length > 0 && !isTyping && !showRegistrationForm && messages[messages.length - 1].options && (
+                            <div className="flex flex-col gap-2 mt-2 pl-10">
+                                {messages[messages.length - 1].options?.map((opt, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => handleOptionClick(opt)}
+                                        className="bg-white border border-primary/20 text-primary text-sm font-medium py-2 px-4 rounded-xl hover:bg-primary/5 transition-colors text-left shadow-sm"
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        <div ref={messagesEndRef} />
+                    </div>
+
+                    {/* Input Area */}
+                    <div className="p-3 bg-white border-t border-gray-100 shrink-0">
+                        <form onSubmit={handleInputSubmit} className="flex gap-2 items-center relative">
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="p-2 text-gray-400 hover:text-primary transition-colors active:scale-95"
+                                title="사진 업로드"
+                            >
+                                <ImagePlus className="w-6 h-6" />
+                            </button>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                className="hidden"
+                                accept="image/*"
+                                onChange={handleFileChange}
+                            />
+                            <input
+                                type="text"
+                                value={inputValue}
+                                onChange={(e) => setInputValue(e.target.value)}
+                                placeholder="메시지를 입력하세요..."
+                                className="flex-1 bg-gray-100 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all outline-none"
+                            />
+                            <button
+                                type="submit"
+                                disabled={!inputValue.trim()}
+                                className="active:scale-95 transition-transform bg-primary text-white rounded-full p-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <Send className="w-4 h-4" />
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
-        </div>
+
+            {/* Quick Booking Modal */}
+            {visitorId && (
+                <QuickBookingModal
+                    isOpen={showBookingModal}
+                    onClose={() => setShowBookingModal(false)}
+                    visitorId={visitorId}
+                    userName={userName}
+                    onSuccess={handleBookingSuccess}
+                />
+            )}
+        </>
     );
 }
