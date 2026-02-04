@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { StickyBottomBar } from "@/components/StickyBottomBar";
-import { Calculator, Sparkles, CalendarClock, Menu, ChevronRight, ArrowRight, CheckCircle } from "lucide-react";
+import { Calculator, Sparkles, CalendarClock, Menu, ChevronRight, ArrowRight, CheckCircle, User, UserCheck } from "lucide-react";
 import { ChatbotTriggerButton } from "@/components/ChatbotTriggerButton";
 import { ImplantSimulationModal } from "@/components/ImplantSimulationModal";
 import { RegistrationForm } from "@/components/RegistrationForm";
@@ -59,7 +59,21 @@ export default function Home() {
                 </div>
                 <h2 className="text-[#101418] text-lg font-bold leading-tight tracking-[-0.015em]">Haruplant</h2>
               </div>
-              <div className="hidden md:flex flex-1 justify-end gap-8">
+              <div className="hidden md:flex flex-1 justify-end gap-4 items-center">
+                {isLoggedIn ? (
+                  <div className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-full text-sm font-medium">
+                    <UserCheck className="w-4 h-4" />
+                    <span>로그인중</span>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowLoginModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-full text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <User className="w-4 h-4" />
+                    <span>로그인</span>
+                  </button>
+                )}
                 <ChatbotTriggerButton className="flex min-w-[84px] items-center justify-center overflow-hidden rounded-xl h-10 px-6 bg-secondary text-white text-sm font-bold leading-normal tracking-[0.015em] hover:bg-orange-400 shadow-sm">
                   <span className="truncate">빠른 상담</span>
                 </ChatbotTriggerButton>

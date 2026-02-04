@@ -10,12 +10,7 @@ import { Send, ImagePlus, User, MessageCircle } from "lucide-react";
 const INITIAL_MESSAGE: ChatMessage = {
     id: 'init',
     role: 'bot',
-    text: "안녕하세요! 하루임플란트치과 상담실장 '하루'입니다. 궁금한 점이 있으시면 편하게 말씀해주세요. (임플란트, 비용, 진단 등)",
-    options: [
-        { label: "임플란트 비용이 궁금해요", value: "cost", nextStep: "cost_intro" },
-        { label: "상담 예약하고 싶어요", value: "consult_form" },
-        { label: "치아 상태 진단받고 싶어요", value: "vision", nextStep: "vision_intro" }
-    ]
+    text: "안녕하세요! 하루임플란트치과 상담실장 '하루'입니다. 궁금한 점이 있으시면 편하게 말씀해주세요. (임플란트, 비용, 진단 등)"
 };
 
 export function ChatSection() {
@@ -175,17 +170,17 @@ export function ChatSection() {
     };
 
     return (
-        <section className="w-full bg-white py-12 border-t border-gray-100">
+        <section id="chat-section" className="w-full bg-white py-12 border-t border-gray-100">
             <div className="mx-auto flex flex-col px-5 md:px-10 lg:px-40">
                 <div className="max-w-[960px] w-full mx-auto">
                     {/* Section Header */}
                     <div className="text-center mb-8">
-                        <span className="text-primary font-bold tracking-wider text-sm uppercase">AI Consultation</span>
+                        <span className="text-primary font-bold tracking-wider text-sm uppercase">Consultation</span>
                         <h2 className="text-[#101418] tracking-tight text-[28px] md:text-[32px] font-bold leading-tight mt-2">
                             하루 실장님과 상담하기
                         </h2>
                         <p className="text-[#5e748d] text-base font-normal leading-normal mt-2">
-                            임플란트에 대해 궁금한 점을 물어보세요. AI 상담실장이 친절하게 답변해드립니다.
+                            임플란트에 대해 궁금한 점을 물어보세요. 상담실장이 친절하게 답변해드립니다.
                         </p>
                     </div>
 
