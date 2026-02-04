@@ -163,7 +163,7 @@ export function ChatSection() {
                         const botMsg: ChatMessage = {
                             id: Date.now().toString(),
                             role: 'bot',
-                            text: `${userName}님, 빠른 시일내 통화 혹은 문자로 예약 관련 안내 연락을 드리겠습니다.`
+                            text: `${userName}님, 상담신청이 완료되었습니다. 빠른 시일내 통화 혹은 문자로 예약 관련 안내 연락을 드리겠습니다.`
                         };
                         setMessages(prev => [...prev, botMsg]);
                     } else {
