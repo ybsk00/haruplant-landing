@@ -101,8 +101,7 @@ export function RegistrationForm({ visitorId, onSuccess, onCancel }: Registratio
                         onChange={(e) => setFormData({ ...formData, privacyAgreed: e.target.checked })}
                     />
                     <span className="text-xs text-gray-600 leading-relaxed">
-                        <span className="font-semibold text-gray-800">개인정보 수집 및 이용에 동의합니다.</span><br />
-                        수집된 정보는 상담 목적으로만 사용되며, <span className="font-semibold text-primary">30일 후 자동 삭제</span>됩니다.
+                        수집된 정보는 예약관리 및 상담목적으로만 사용되며 <span className="font-semibold text-primary">30일 이후 자동 삭제</span>됩니다.
                     </span>
                 </label>
 

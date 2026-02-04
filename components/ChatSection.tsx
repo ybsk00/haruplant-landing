@@ -6,6 +6,62 @@ import { SCENARIO } from "@/lib/chatbot/scenario";
 import { cn } from "@/lib/utils";
 import { Send, ImagePlus, User, MessageCircle } from "lucide-react";
 
+// Inline Registration Form Component
+function InlineRegistrationForm({ onSubmit, isSubmitting }: { onSubmit: (name: string, phone: string) => void; isSubmitting: boolean }) {
+    const [name, setName] = useState('');
+    const [phone, setPhone] = useState('');
+    const [agreed, setAgreed] = useState(false);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (name && phone && agreed) {
+            onSubmit(name, phone);
+        }
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-3">
+            <div>
+                <input
+                    type="text"
+                    placeholder="이름"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                    required
+                />
+            </div>
+            <div>
+                <input
+                    type="tel"
+                    placeholder="전화번호 (예: 010-1234-5678)"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                    required
+                />
+            </div>
+            <label className="flex items-start gap-2 text-xs text-gray-600">
+                <input
+                    type="checkbox"
+                    checked={agreed}
+                    onChange={(e) => setAgreed(e.target.checked)}
+                    className="mt-0.5"
+                    required
+                />
+                <span>수집된 정보는 예약관리 및 상담목적으로만 사용되며 30일 이후 자동 삭제됩니다.</span>
+            </label>
+            <button
+                type="submit"
+                disabled={!name || !phone || !agreed || isSubmitting}
+                className="w-full py-2 bg-primary text-white rounded-lg text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
+            >
+                {isSubmitting ? '처리중...' : '상담 신청하기'}
+            </button>
+        </form>
+    );
+}
+
 // Initial greeting without emojis
 const INITIAL_MESSAGE: ChatMessage = {
     id: 'init',
@@ -23,6 +79,9 @@ export function ChatSection() {
     const [visitorId, setVisitorId] = useState<string | null>(null);
     const [isRegistered, setIsRegistered] = useState(false);
     const [userName, setUserName] = useState<string>('');
+    const [userPhone, setUserPhone] = useState<string>('');
+    const [showInlineForm, setShowInlineForm] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Additional state for lead collection
     const [leadData, setLeadData] = useState<Record<string, string>>({});
@@ -43,6 +102,7 @@ export function ChatSection() {
                     if (leadData.isRegistered && leadData.lead) {
                         setIsRegistered(true);
                         setUserName(leadData.lead.name);
+                        setUserPhone(leadData.lead.phone || '');
                     }
                 }
             } catch (error) {
@@ -81,13 +141,55 @@ export function ChatSection() {
     }, [leadData]);
 
     // Handle Quick Options
-    const handleOptionClick = (option: { label: string; value: string; nextStep?: string }) => {
+    const handleOptionClick = async (option: { label: string; value: string; nextStep?: string }) => {
         const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', text: option.label };
         setMessages(prev => [...prev, userMsg]);
 
         if (option.value === 'consult_form' || option.value === 'start_consultation') {
-            // Trigger chatbot for consultation
-            window.dispatchEvent(new CustomEvent('openChatbot'));
+            if (isRegistered && userName && visitorId) {
+                // Logged in: submit consultation directly
+                setIsSubmitting(true);
+                try {
+                    const res = await fetch('/api/bookings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            visitorId,
+                            service: 'consultation',
+                        })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        const botMsg: ChatMessage = {
+                            id: Date.now().toString(),
+                            role: 'bot',
+                            text: `${userName}님, 빠른 시일내 통화 혹은 문자로 예약 관련 안내 연락을 드리겠습니다.`
+                        };
+                        setMessages(prev => [...prev, botMsg]);
+                    } else {
+                        throw new Error(data.error);
+                    }
+                } catch (error) {
+                    console.error('Booking error:', error);
+                    const botMsg: ChatMessage = {
+                        id: Date.now().toString(),
+                        role: 'bot',
+                        text: '상담 신청 중 오류가 발생했습니다. 다시 시도해주세요.'
+                    };
+                    setMessages(prev => [...prev, botMsg]);
+                } finally {
+                    setIsSubmitting(false);
+                }
+            } else {
+                // Not logged in: show inline registration form
+                setShowInlineForm(true);
+                const botMsg: ChatMessage = {
+                    id: Date.now().toString(),
+                    role: 'bot',
+                    text: '상담 신청을 위해 연락처를 입력해주세요.'
+                };
+                setMessages(prev => [...prev, botMsg]);
+            }
             return;
         }
 
@@ -95,6 +197,57 @@ export function ChatSection() {
             handleScenarioStep(option.nextStep);
         } else {
             handleAIResponse(option.label);
+        }
+    };
+
+    // Handle inline form submission
+    const handleInlineFormSubmit = async (name: string, phone: string) => {
+        if (!visitorId) return;
+        setIsSubmitting(true);
+        try {
+            // First register the lead
+            const leadRes = await fetch('/api/leads', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ visitorId, name, phone, privacyAgreed: true })
+            });
+            const leadData = await leadRes.json();
+            if (!leadData.success) throw new Error(leadData.error);
+
+            // Then create booking
+            const bookingRes = await fetch('/api/bookings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    visitorId,
+                    service: 'consultation',
+                })
+            });
+            const bookingData = await bookingRes.json();
+            if (bookingData.success) {
+                setIsRegistered(true);
+                setUserName(name);
+                setUserPhone(phone);
+                setShowInlineForm(false);
+                const botMsg: ChatMessage = {
+                    id: Date.now().toString(),
+                    role: 'bot',
+                    text: `${name}님, 예약이 완료되었습니다. 빠른 시일내 통화 혹은 문자로 예약 관련 안내 연락을 드리겠습니다.`
+                };
+                setMessages(prev => [...prev, botMsg]);
+            } else {
+                throw new Error(bookingData.error);
+            }
+        } catch (error) {
+            console.error('Registration/Booking error:', error);
+            const botMsg: ChatMessage = {
+                id: Date.now().toString(),
+                role: 'bot',
+                text: '상담 신청 중 오류가 발생했습니다. 다시 시도해주세요.'
+            };
+            setMessages(prev => [...prev, botMsg]);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -236,17 +389,28 @@ export function ChatSection() {
                             )}
 
                             {/* Quick Options */}
-                            {messages.length > 0 && !isTyping && messages[messages.length - 1].options && (
+                            {messages.length > 0 && !isTyping && !showInlineForm && messages[messages.length - 1].options && (
                                 <div className="flex flex-wrap gap-2 mt-2 pl-10">
                                     {messages[messages.length - 1].options?.map((opt, i) => (
                                         <button
                                             key={i}
                                             onClick={() => handleOptionClick(opt)}
-                                            className="bg-white border border-primary/20 text-primary text-sm font-medium py-2 px-4 rounded-xl hover:bg-primary/5 transition-colors shadow-sm"
+                                            disabled={isSubmitting}
+                                            className="bg-white border border-primary/20 text-primary text-sm font-medium py-2 px-4 rounded-xl hover:bg-primary/5 transition-colors shadow-sm disabled:opacity-50"
                                         >
                                             {opt.label}
                                         </button>
                                     ))}
+                                </div>
+                            )}
+
+                            {/* Inline Registration Form */}
+                            {showInlineForm && (
+                                <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm ml-10">
+                                    <InlineRegistrationForm
+                                        onSubmit={handleInlineFormSubmit}
+                                        isSubmitting={isSubmitting}
+                                    />
                                 </div>
                             )}
                             <div ref={messagesEndRef} />
