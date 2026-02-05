@@ -90,3 +90,31 @@ CREATE POLICY "Allow all operations on bookings" ON bookings
 -- DELETE FROM bookings WHERE expires_at < now();
 -- DELETE FROM leads WHERE expires_at < now();
 -- DELETE FROM visitors WHERE expires_at < now();
+
+-- =============================================
+-- 4. Schema Updates for Tracking (Added)
+-- =============================================
+
+-- Add UTM columns to visitors if they don't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'visitors' AND column_name = 'utm_source') THEN
+        ALTER TABLE visitors ADD COLUMN utm_source text;
+        ALTER TABLE visitors ADD COLUMN utm_medium text;
+        ALTER TABLE visitors ADD COLUMN utm_campaign text;
+        ALTER TABLE visitors ADD COLUMN utm_content text;
+        ALTER TABLE visitors ADD COLUMN utm_term text;
+    END IF;
+END $$;
+
+-- Add UTM columns to leads if they don't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'leads' AND column_name = 'utm_source') THEN
+        ALTER TABLE leads ADD COLUMN utm_source text;
+        ALTER TABLE leads ADD COLUMN utm_medium text;
+        ALTER TABLE leads ADD COLUMN utm_campaign text;
+        ALTER TABLE leads ADD COLUMN utm_content text;
+        ALTER TABLE leads ADD COLUMN utm_term text;
+    END IF;
+END $$;

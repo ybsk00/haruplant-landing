@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getUTMs, pixelEvent } from '@/lib/tracking';
 
 interface ConsultationModalProps {
     isOpen: boolean;
@@ -46,10 +47,18 @@ export function ConsultationModal({ isOpen, onClose }: ConsultationModalProps) {
                     phone: formData.phone,
                     email: formData.email,
                     treatmentType: formData.treatmentType,
-                    source: 'consultation_form'
+                    source: 'consultation_form',
+                    ...getUTMs()
                 })
             });
             if (res.ok) {
+                // 트래킹 이벤트 전송
+                pixelEvent('Lead', {
+                    content_name: formData.treatmentType,
+                    currency: 'KRW',
+                    value: 0
+                });
+
                 setIsSuccess(true);
                 setTimeout(() => {
                     onClose();

@@ -37,6 +37,11 @@ export async function POST(req: Request) {
         }
 
         // Upsert lead (insert or update if visitor_id exists)
+        // Note: In a real scenario, we might want to fetch confirmed UTMs from the visitor record
+        // but for simplicity and speed, we trust the client's cookie data or
+        // we could do a join update. Here we accept UTMs if passed in body.
+        const { utm_source, utm_medium, utm_campaign, utm_content, utm_term } = body;
+
         const { data, error } = await supabase
             .from('leads')
             .upsert({
@@ -45,6 +50,11 @@ export async function POST(req: Request) {
                 phone,
                 privacy_agreed: privacyAgreed,
                 privacy_version: PRIVACY_VERSION,
+                utm_source,
+                utm_medium,
+                utm_campaign,
+                utm_content,
+                utm_term
             }, {
                 onConflict: 'visitor_id'
             })

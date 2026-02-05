@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Check } from 'lucide-react';
+import { getUTMs, pixelEvent } from '@/lib/tracking';
 
 interface RegistrationFormProps {
     visitorId: string;
@@ -47,13 +48,20 @@ export function RegistrationForm({ visitorId, onSuccess, onCancel }: Registratio
                     name: formData.name,
                     phone: formData.phone,
                     privacyAgreed: formData.privacyAgreed,
-                    visitorId
+                    visitorId,
+                    ...getUTMs()
                 })
             });
 
             const data = await res.json();
 
             if (data.success) {
+                // 트래킹 이벤트 전송
+                pixelEvent('Lead', {
+                    content_name: 'Chatbot Registration',
+                    currency: 'KRW',
+                    value: 0
+                });
                 onSuccess(formData.name, formData.phone);
             } else {
                 setError(data.error || "등록에 실패했습니다. 다시 시도해주세요.");
