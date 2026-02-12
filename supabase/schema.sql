@@ -72,14 +72,17 @@ ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
 
 -- Visitors: Allow all operations for anonymous users
+DROP POLICY IF EXISTS "Allow all operations on visitors" ON visitors;
 CREATE POLICY "Allow all operations on visitors" ON visitors
     FOR ALL USING (true) WITH CHECK (true);
 
 -- Leads: Allow all operations for anonymous users
+DROP POLICY IF EXISTS "Allow all operations on leads" ON leads;
 CREATE POLICY "Allow all operations on leads" ON leads
     FOR ALL USING (true) WITH CHECK (true);
 
 -- Bookings: Allow all operations for anonymous users
+DROP POLICY IF EXISTS "Allow all operations on bookings" ON bookings;
 CREATE POLICY "Allow all operations on bookings" ON bookings
     FOR ALL USING (true) WITH CHECK (true);
 

@@ -86,7 +86,7 @@ export function ChatSection() {
     // Additional state for lead collection
     const [leadData, setLeadData] = useState<Record<string, string>>({});
     const [inputValue, setInputValue] = useState("");
-    const messagesEndRef = useRef<HTMLDivElement>(null);
+    // messagesEndRef removed as we use container scroll
 
     // Initialize visitor on mount
     useEffect(() => {
@@ -112,9 +112,15 @@ export function ChatSection() {
         initVisitor();
     }, []);
 
+    const chatContainerRef = useRef<HTMLDivElement>(null);
+
     useEffect(() => {
-        if (messagesEndRef.current) {
-            messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+        if (chatContainerRef.current) {
+            const { scrollHeight, clientHeight } = chatContainerRef.current;
+            chatContainerRef.current.scrollTo({
+                top: scrollHeight - clientHeight,
+                behavior: 'smooth'
+            });
         }
     }, [messages, isTyping]);
 
@@ -346,15 +352,42 @@ export function ChatSection() {
                             </div>
                             <div>
                                 <h3 className="font-bold text-base">하루 실장님</h3>
-                                <span className="text-xs text-blue-200 flex items-center gap-1">
-                                    <span className="size-2 bg-green-400 rounded-full animate-pulse"></span>
-                                    {isRegistered ? `${userName}님 환영합니다` : '실시간 답변 대기중'}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-blue-200 flex items-center gap-1">
+                                        <span className="size-2 bg-green-400 rounded-full animate-pulse"></span>
+                                        {isRegistered ? `${userName}님 환영합니다` : '실시간 답변 대기중'}
+                                    </span>
+                                    {isRegistered && (
+                                        <button
+                                            onClick={async () => {
+                                                try {
+                                                    await fetch('/api/auth/logout', { method: 'POST' });
+                                                    // Reset state
+                                                    setIsRegistered(false);
+                                                    setUserName('');
+                                                    setUserPhone('');
+                                                    setVisitorId(null);
+                                                    setMessages([INITIAL_MESSAGE]);
+
+                                                    // Re-init visitor
+                                                    const res = await fetch('/api/visitors', { method: 'POST' });
+                                                    const data = await res.json();
+                                                    if (data.success) setVisitorId(data.visitorId);
+                                                } catch (error) {
+                                                    console.error("Logout failed:", error);
+                                                }
+                                            }}
+                                            className="text-[10px] bg-white/20 hover:bg-white/30 text-white px-2 py-0.5 rounded transition-colors"
+                                        >
+                                            로그아웃
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
                         {/* Chat Messages */}
-                        <div className="h-[400px] overflow-y-auto p-4 space-y-4">
+                        <div ref={chatContainerRef} className="h-[400px] overflow-y-auto p-4 space-y-4">
                             {messages.map((msg, idx) => (
                                 <div key={idx} className={cn("flex w-full mb-4", msg.role === 'user' ? "justify-end" : "justify-start")}>
                                     {msg.role === 'bot' && (
@@ -413,7 +446,7 @@ export function ChatSection() {
                                     />
                                 </div>
                             )}
-                            <div ref={messagesEndRef} />
+
                         </div>
 
                         {/* Input Area */}
