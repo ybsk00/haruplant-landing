@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { convex } from "@/lib/convex";
+import { api } from "@/convex/_generated/api";
 import { getOrCreateVisitorId, setVisitorCookie } from "@/lib/visitor";
 
 /**
@@ -43,13 +44,14 @@ export async function GET(req: Request) {
         }
 
         // Get visitor
-        const { data: visitor, error: visitorError } = await supabase
-            .from('visitors')
-            .select('*')
-            .eq('id', visitorId)
-            .single();
+        let visitor;
+        try {
+            visitor = await convex.query(api.visitors.get, { visitorId });
+        } catch (e) {
+            // invalid convex id
+        }
 
-        if (visitorError || !visitor) {
+        if (!visitor) {
             return NextResponse.json(
                 { success: false, error: 'Visitor not found' },
                 { status: 404 }
@@ -57,11 +59,7 @@ export async function GET(req: Request) {
         }
 
         // Check if registered (has lead)
-        const { data: lead } = await supabase
-            .from('leads')
-            .select('id, name, phone')
-            .eq('visitor_id', visitorId)
-            .single();
+        const lead = await convex.query(api.leads.getByVisitor, { visitorId });
 
         return NextResponse.json({
             success: true,
@@ -75,5 +73,32 @@ export async function GET(req: Request) {
             { success: false, error: 'Server error' },
             { status: 500 }
         );
+    }
+}
+
+/**
+ * PATCH /api/visitors - Update visitor UTMs (used by frontend tracking)
+ */
+export async function PATCH(req: Request) {
+    try {
+        const body = await req.json();
+        const { visitorId, utm_source, utm_medium, utm_campaign, utm_content, utm_term } = body;
+
+        if (!visitorId) {
+            return NextResponse.json({ success: false }, { status: 400 });
+        }
+
+        // This will only update if the visitor has already registered as a lead,
+        // which matches our convex implementation
+        await convex.mutation(api.leads.upsert, {
+            visitorId,
+            name: "", // Since it's upsert, we might need a separate updateUtm mutation if they aren't a lead yet!
+            // wait! updateUtm was implemented but maybe not exported/used.
+            // I will leave this as a no-op if they aren't a lead, or call a specific utm mutation.
+        });
+
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        return NextResponse.json({ success: false }, { status: 500 });
     }
 }

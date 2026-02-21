@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
-import { supabase } from './supabase';
+import { convex } from './convex';
+import { api } from '../convex/_generated/api';
 
 const VISITOR_COOKIE_NAME = 'visitor_id';
 const COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days in seconds
@@ -11,31 +12,13 @@ export async function getOrCreateVisitorId(): Promise<string> {
     const cookieStore = await cookies();
     const existingId = cookieStore.get(VISITOR_COOKIE_NAME)?.value;
 
-    if (existingId) {
-        // Verify visitor still exists in DB
-        const { data } = await supabase
-            .from('visitors')
-            .select('id')
-            .eq('id', existingId)
-            .single();
-
-        if (data) {
-            return existingId;
-        }
-    }
-
-    // Create new visitor
-    const { data: newVisitor, error } = await supabase
-        .from('visitors')
-        .insert({})
-        .select('id')
-        .single();
-
-    if (error || !newVisitor) {
+    try {
+        const visitorId = await convex.mutation(api.visitors.getOrCreate, { visitorId: existingId });
+        return visitorId;
+    } catch (error) {
+        console.error('Failed to create visitor in Convex:', error);
         throw new Error('Failed to create visitor');
     }
-
-    return newVisitor.id;
 }
 
 /**
@@ -65,25 +48,22 @@ export async function getVisitorId(): Promise<string | null> {
  * Check if visitor is registered (has lead data)
  */
 export async function isVisitorRegistered(visitorId: string): Promise<boolean> {
-    const { data } = await supabase
-        .from('leads')
-        .select('id')
-        .eq('visitor_id', visitorId)
-        .single();
-
-    return !!data;
+    try {
+        const lead = await convex.query(api.leads.getByVisitor, { visitorId });
+        return !!lead;
+    } catch (error) {
+        return false;
+    }
 }
 
 /**
  * Get lead data for visitor
  */
 export async function getLeadByVisitorId(visitorId: string) {
-    const { data, error } = await supabase
-        .from('leads')
-        .select('*')
-        .eq('visitor_id', visitorId)
-        .single();
-
-    if (error) return null;
-    return data;
+    try {
+        const lead = await convex.query(api.leads.getByVisitor, { visitorId });
+        return lead;
+    } catch (error) {
+        return null;
+    }
 }

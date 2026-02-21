@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { convex } from "@/lib/convex";
+import { api } from "@/convex/_generated/api";
 import { getVisitorId } from "@/lib/visitor";
 
 /**
@@ -10,7 +11,6 @@ export async function POST(req: Request) {
         const body = await req.json();
         const { service = 'implant', visitorId: bodyVisitorId } = body;
 
-        // Get visitor ID from body or cookie
         const visitorId = bodyVisitorId || await getVisitorId();
 
         if (!visitorId) {
@@ -20,12 +20,7 @@ export async function POST(req: Request) {
             );
         }
 
-        // Check if visitor is registered
-        const { data: lead } = await supabase
-            .from('leads')
-            .select('id, name, phone')
-            .eq('visitor_id', visitorId)
-            .single();
+        const lead = await convex.query(api.leads.getByVisitor, { visitorId });
 
         if (!lead) {
             return NextResponse.json(
@@ -34,18 +29,21 @@ export async function POST(req: Request) {
             );
         }
 
-        // Create booking
-        const { data, error } = await supabase
-            .from('bookings')
-            .insert({
-                visitor_id: visitorId,
+        try {
+            const bookingId = await convex.mutation(api.bookings.create, {
+                visitorId,
                 service,
-                status: 'requested'
-            })
-            .select()
-            .single();
+                status: 'requested',
+            });
 
-        if (error) {
+            return NextResponse.json({
+                success: true,
+                id: bookingId,
+                message: '상담 예약이 완료되었습니다. 곧 연락드리겠습니다.',
+                booking: { id: bookingId, visitor_id: visitorId, service, status: 'requested' },
+                lead
+            });
+        } catch (error) {
             console.error("Booking insert error:", error);
             return NextResponse.json(
                 { success: false, error: 'Failed to create booking' },
@@ -53,13 +51,6 @@ export async function POST(req: Request) {
             );
         }
 
-        return NextResponse.json({
-            success: true,
-            id: data.id,
-            message: '상담 예약이 완료되었습니다. 곧 연락드리겠습니다.',
-            booking: data,
-            lead
-        });
     } catch (error) {
         console.error("Booking API Error:", error);
         return NextResponse.json(
@@ -78,46 +69,17 @@ export async function GET(req: Request) {
         const visitorId = url.searchParams.get('visitorId');
 
         if (visitorId) {
-            // Get bookings for specific visitor
-            const { data, error } = await supabase
-                .from('bookings')
-                .select('*')
-                .eq('visitor_id', visitorId)
-                .order('created_at', { ascending: false });
-
-            if (error) {
-                return NextResponse.json(
-                    { success: false, error: 'Database error' },
-                    { status: 500 }
-                );
-            }
+            const bookings = await convex.query(api.bookings.getByVisitor, { visitorId });
 
             return NextResponse.json({
                 success: true,
-                bookings: data
+                bookings: bookings
             });
         }
 
-        // Get all bookings (admin) with lead info
-        const { data: bookings, error } = await supabase
-            .from('bookings')
-            .select(`
-                *,
-                leads!bookings_visitor_id_fkey (name, phone)
-            `)
-            .order('created_at', { ascending: false });
+        const bookingsWithLeads = await convex.query(api.bookings.listWithLeads);
+        return NextResponse.json(bookingsWithLeads);
 
-        if (error) {
-            // Fallback: get bookings without join if foreign key doesn't exist
-            const { data: bookingsOnly } = await supabase
-                .from('bookings')
-                .select('*')
-                .order('created_at', { ascending: false });
-
-            return NextResponse.json(bookingsOnly || []);
-        }
-
-        return NextResponse.json(bookings);
     } catch (error) {
         console.error("Booking API Error:", error);
         return NextResponse.json(

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { convex } from "@/lib/convex";
+import { api } from "@/convex/_generated/api";
 import { getVisitorId } from "@/lib/visitor";
 
 const PRIVACY_VERSION = '2026-02-04-v1';
@@ -12,7 +13,6 @@ export async function POST(req: Request) {
         const body = await req.json();
         const { name, phone, privacyAgreed, visitorId: bodyVisitorId } = body;
 
-        // Get visitor ID from body or cookie
         const visitorId = bodyVisitorId || await getVisitorId();
 
         if (!visitorId) {
@@ -36,32 +36,28 @@ export async function POST(req: Request) {
             );
         }
 
-        // Upsert lead (insert or update if visitor_id exists)
-        // Note: In a real scenario, we might want to fetch confirmed UTMs from the visitor record
-        // but for simplicity and speed, we trust the client's cookie data or
-        // we could do a join update. Here we accept UTMs if passed in body.
         const { utm_source, utm_medium, utm_campaign, utm_content, utm_term } = body;
 
-        const { data, error } = await supabase
-            .from('leads')
-            .upsert({
-                visitor_id: visitorId,
+        try {
+            const leadId = await convex.mutation(api.leads.upsert, {
+                visitorId,
                 name,
                 phone,
-                privacy_agreed: privacyAgreed,
-                privacy_version: PRIVACY_VERSION,
-                utm_source,
-                utm_medium,
-                utm_campaign,
-                utm_content,
-                utm_term
-            }, {
-                onConflict: 'visitor_id'
-            })
-            .select()
-            .single();
+                privacyAgreed,
+                privacyVersion: PRIVACY_VERSION,
+                utm_source: utm_source || null,
+                utm_medium: utm_medium || null,
+                utm_campaign: utm_campaign || null,
+                utm_content: utm_content || null,
+                utm_term: utm_term || null,
+            });
 
-        if (error) {
+            return NextResponse.json({
+                success: true,
+                id: leadId,
+                message: '회원 등록이 완료되었습니다.'
+            });
+        } catch (error) {
             console.error("Lead upsert error:", error);
             return NextResponse.json(
                 { success: false, error: 'Failed to save lead' },
@@ -69,11 +65,6 @@ export async function POST(req: Request) {
             );
         }
 
-        return NextResponse.json({
-            success: true,
-            id: data.id,
-            message: '회원 등록이 완료되었습니다.'
-        });
     } catch (error) {
         console.error("Lead API Error:", error);
         return NextResponse.json(
@@ -92,14 +83,9 @@ export async function GET(req: Request) {
         const visitorId = url.searchParams.get('visitorId');
 
         if (visitorId) {
-            // Get specific lead for visitor
-            const { data, error } = await supabase
-                .from('leads')
-                .select('*')
-                .eq('visitor_id', visitorId)
-                .single();
+            const lead = await convex.query(api.leads.getByVisitor, { visitorId });
 
-            if (error) {
+            if (!lead) {
                 return NextResponse.json({
                     success: true,
                     isRegistered: false,
@@ -110,24 +96,13 @@ export async function GET(req: Request) {
             return NextResponse.json({
                 success: true,
                 isRegistered: true,
-                lead: data
+                lead: lead
             });
         }
 
-        // Get all leads (admin)
-        const { data: leads, error } = await supabase
-            .from('leads')
-            .select('*')
-            .order('created_at', { ascending: false });
-
-        if (error) {
-            return NextResponse.json(
-                { success: false, error: 'Database error' },
-                { status: 500 }
-            );
-        }
-
+        const leads = await convex.query(api.leads.list);
         return NextResponse.json(leads);
+
     } catch (error) {
         console.error("Lead API Error:", error);
         return NextResponse.json(
