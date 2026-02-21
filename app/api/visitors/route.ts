@@ -88,13 +88,14 @@ export async function PATCH(req: Request) {
             return NextResponse.json({ success: false }, { status: 400 });
         }
 
-        // This will only update if the visitor has already registered as a lead,
-        // which matches our convex implementation
-        await convex.mutation(api.leads.upsert, {
+        // Use the specific UTM update mutation
+        await convex.mutation(api.leads.updateUtm, {
             visitorId,
-            name: "", // Since it's upsert, we might need a separate updateUtm mutation if they aren't a lead yet!
-            // wait! updateUtm was implemented but maybe not exported/used.
-            // I will leave this as a no-op if they aren't a lead, or call a specific utm mutation.
+            utm_source,
+            utm_medium,
+            utm_campaign,
+            utm_content,
+            utm_term,
         });
 
         return NextResponse.json({ success: true });

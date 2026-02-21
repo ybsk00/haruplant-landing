@@ -1,4 +1,3 @@
-import { supabase } from './supabase';
 
 export const META_PIXEL_ID = 'YOUR_PIXEL_ID'; // 교체 필요
 export const GA_TRACKING_ID = 'G-XXXXXXXX';   // 교체 필요

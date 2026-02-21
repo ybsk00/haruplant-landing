@@ -64,6 +64,35 @@ export const upsert = mutation({
     },
 });
 
+export const updateUtm = mutation({
+    args: {
+        visitorId: v.string(),
+        utm_source: v.optional(v.union(v.string(), v.null())),
+        utm_medium: v.optional(v.union(v.string(), v.null())),
+        utm_campaign: v.optional(v.union(v.string(), v.null())),
+        utm_content: v.optional(v.union(v.string(), v.null())),
+        utm_term: v.optional(v.union(v.string(), v.null())),
+    },
+    handler: async (ctx, args) => {
+        const lead = await ctx.db
+            .query("leads")
+            .withIndex("by_visitor_id", (q) => q.eq("visitor_id", args.visitorId))
+            .first();
+
+        if (lead) {
+            await ctx.db.patch(lead._id, {
+                utm_source: args.utm_source,
+                utm_medium: args.utm_medium,
+                utm_campaign: args.utm_campaign,
+                utm_content: args.utm_content,
+                utm_term: args.utm_term,
+            });
+            return true;
+        }
+        return false;
+    },
+});
+
 export const list = query({
     args: {},
     handler: async (ctx) => {
